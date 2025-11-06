@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .add-log-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+
+        .add-log-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #34495e;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .logs-section {
+            margin-top: 30px;
+        }
+
+        .logs-section h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #34495e;
+        }
+
+        .logs-count {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .timestamp {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #7f8c8d;
+            white-space: nowrap;
+        }
+        
+        .timestamp small {
+            font-size: 10px;
+            color: #95a5a6;
+        }
+
+        .sender {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #3498db;
+            word-break: break-all;
+        }
+
+        .message-cell {
+            max-width: 500px;
+            word-wrap: break-word;
+            font-size: 13px;
+        }
+
+        .refresh-btn {
+            background: #27ae60;
+            margin-left: 10px;
+        }
+
+        .refresh-btn:hover {
+            background: #229954;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Blockchain Log Viewer</h1>
+
+        <div class="add-log-section">
+            <h2>Add New Log</h2>
+            <div class="input-group">
+                <input type="text" id="logMessage" placeholder="Enter log message..." />
+                <button onclick="addLog()" id="addBtn">Add Log</button>
+                <button onclick="loadLogs(false)" class="refresh-btn">Refresh</button>
+            </div>
+            <div id="message"></div>
+        </div>
+
+        <div class="logs-section">
+            <h2>Stored Logs</h2>
+            <div class="logs-count" id="logsCount">Loading...</div>
+            <div id="logsContainer">
+                <div class="loading">Loading logs from blockchain...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        let refreshInterval = null;
+        let displayInterval = null;
+        let lastLogIndex = -1; // Track the highest log index we've seen
+        let pendingLogs = []; // Queue of logs waiting to be displayed
+        let fetchCount = 0; // Track API calls
+        let fetchStartTime = Date.now(); // Track when we started counting
+        const MAX_FETCHES_PER_MINUTE = 20; // Maximum 20 API calls per minute
+        const FETCH_INTERVAL = 5000; // Fetch every 5 seconds
+        const DISPLAY_INTERVAL = 500; // Display 2 logs per second (500ms each)
+        const MAX_VISIBLE_LOGS = 100; // Keep only latest 100 logs visible
+
+        // Load logs on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadLogs();
+            // Start automatic refresh every 5 seconds
+            startAutoRefresh();
+            // Start displaying logs smoothly
+            startDisplayQueue();
+        });
+
+        // Start automatic refresh with rate limiting
+        function startAutoRefresh() {
+            refreshInterval = setInterval(() => {
+                // Check rate limit (20 fetches per minute)
+                const now = Date.now();
+                const elapsed = now - fetchStartTime;
+                
+                if (elapsed >= 60000) {
+                    // Reset counter every minute
+                    fetchCount = 0;
+                    fetchStartTime = now;
+                }
+                
+                if (fetchCount < MAX_FETCHES_PER_MINUTE) {
+                    fetchCount++;
+                    loadLogs(true); // true = append mode
+                }
+            }, FETCH_INTERVAL);
+        }
+
+        // Stop automatic refresh
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Start displaying queued logs smoothly
+        function startDisplayQueue() {
+            displayInterval = setInterval(() => {
+                if (pendingLogs.length > 0) {
+                    // Display 2 logs per second (one every 500ms)
+                    const log = pendingLogs.shift();
+                    appendLogToTable(log);
+                }
+            }, DISPLAY_INTERVAL);
+        }
+
+        // Stop displaying logs
+        function stopDisplayQueue() {
+            if (displayInterval) {
+                clearInterval(displayInterval);
+                displayInterval = null;
+            }
+        }
+
+        // Load logs from blockchain
+        async function loadLogs(appendOnly = false) {
+            const container = document.getElementById('logsContainer');
+            const countEl = document.getElementById('logsCount');
+            
+            if (!appendOnly) {
+                container.innerHTML = '<div class="loading">Loading logs from blockchain...</div>';
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/logs`);
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.count > data.displayed) {
+                        countEl.textContent = `Total logs: ${data.count} (showing latest ${data.displayed})`;
+                    } else {
+                        countEl.textContent = `Total logs: ${data.count}`;
+                    }
+                    
+                    if (appendOnly) {
+                        appendNewLogs(data.logs);
+                    } else {
+                        displayLogs(data.logs);
+                    }
+                } else {
+                    if (!appendOnly) {
+                        container.innerHTML = `<div class="message error">Error: ${data.message || 'Failed to load logs'}</div>`;
+                        countEl.textContent = 'Error loading logs';
+                    }
+                }
+            } catch (error) {
+                if (!appendOnly) {
+                    container.innerHTML = `<div class="message error">Error: Could not connect to server. Make sure the server is running at ${API_URL}</div>`;
+                    countEl.textContent = 'Connection error';
+                }
+            }
+        }
+
+        // Display logs in a table
+        function displayLogs(logs) {
+            const container = document.getElementById('logsContainer');
+
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="loading">No logs found. Add a log to get started!</div>';
+                lastLogIndex = -1;
+                return;
+            }
+
+            let html = '<table><thead><tr><th>Index</th><th>Timestamp</th><th>Sender</th><th>Message</th></tr></thead><tbody>';
+
+            logs.forEach(log => {
+                html += formatLogRow(log);
+                // Update last seen index
+                if (log.index > lastLogIndex) {
+                    lastLogIndex = log.index;
+                }
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        // Append only new logs (logs with index > lastLogIndex)
+        function appendNewLogs(logs) {
+            const container = document.getElementById('logsContainer');
+            const table = container.querySelector('table');
+            
+            if (!table) {
+                // No table yet, display all logs
+                displayLogs(logs);
+                return;
+            }
+
+            // Filter new logs (index > lastLogIndex) and avoid duplicates
+            const newLogs = logs.filter(log => log.index > lastLogIndex);
+            
+            if (newLogs.length === 0) {
+                return; // No new logs
+            }
+
+            // Add new logs to pending queue (they'll be displayed smoothly)
+            newLogs.forEach(log => {
+                // Avoid duplicates in queue
+                if (!pendingLogs.find(p => p.index === log.index)) {
+                    pendingLogs.push(log);
+                    // Update last seen index
+                    if (log.index > lastLogIndex) {
+                        lastLogIndex = log.index;
+                    }
+                }
+            });
+
+            // Update count
+            const countEl = document.getElementById('logsCount');
+            const currentText = countEl.textContent;
+            const match = currentText.match(/Total logs: (\d+)/);
+            if (match) {
+                const total = parseInt(match[1]);
+                countEl.textContent = `Total logs: ${total} (showing latest ${Math.min(total, 100)})`;
+            }
+        }
+
+        // Append a single log to the table
+        function appendLogToTable(log) {
+            const container = document.getElementById('logsContainer');
+            const table = container.querySelector('table');
+            
+            if (!table) {
+                return;
+            }
+
+            const tbody = table.querySelector('tbody');
+            if (!tbody) return;
+
+            // Check if log already exists in table
+            const existingRow = tbody.querySelector(`tr[data-index="${log.index}"]`);
+            if (existingRow) {
+                return; // Already displayed
+            }
+
+            // Create and prepend the row
+            const row = createLogRow(log);
+            row.setAttribute('data-index', log.index);
+            tbody.insertBefore(row, tbody.firstChild);
+
+            // Keep only latest 100 logs visible
+            const allRows = tbody.querySelectorAll('tr');
+            if (allRows.length > MAX_VISIBLE_LOGS) {
+                // Remove oldest logs (at the bottom)
+                for (let i = allRows.length - 1; i >= MAX_VISIBLE_LOGS; i--) {
+                    allRows[i].remove();
+                }
+            }
+        }
+
+        // Format a single log row as HTML string
+        function formatLogRow(log) {
+            // Try to extract timestamp from log message (format: 2025-11-06 17:01:58.974096+0530)
+            const logTimestampMatch = log.message.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+            let displayDate;
+            let displayTime;
+            
+            if (logTimestampMatch) {
+                // Use timestamp from log message if available
+                const logTimeStr = logTimestampMatch[1];
+                displayDate = logTimeStr;
+                displayTime = 'From log';
+            } else {
+                // Fall back to blockchain timestamp
+                const date = new Date(parseInt(log.timestamp) * 1000);
+                displayDate = date.toLocaleDateString();
+                displayTime = date.toLocaleTimeString();
+            }
+            
+            return `
+                <tr>
+                    <td>${log.index}</td>
+                    <td class="timestamp">${displayDate}<br><small>${displayTime}</small></td>
+                    <td class="sender">${log.sender}</td>
+                    <td class="message-cell">${escapeHtml(log.message)}</td>
+                </tr>
+            `;
+        }
+
+        // Create a log row as DOM element
+        function createLogRow(log) {
+            const tr = document.createElement('tr');
+            tr.setAttribute('data-index', log.index);
+            
+            // Try to extract timestamp from log message
+            const logTimestampMatch = log.message.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+            let displayDate;
+            let displayTime;
+            
+            if (logTimestampMatch) {
+                const logTimeStr = logTimestampMatch[1];
+                displayDate = logTimeStr;
+                displayTime = 'From log';
+            } else {
+                const date = new Date(parseInt(log.timestamp) * 1000);
+                displayDate = date.toLocaleDateString();
+                displayTime = date.toLocaleTimeString();
+            }
+            
+            tr.innerHTML = `
+                <td>${log.index}</td>
+                <td class="timestamp">${displayDate}<br><small>${displayTime}</small></td>
+                <td class="sender">${log.sender}</td>
+                <td class="message-cell">${escapeHtml(log.message)}</td>
+            `;
+            
+            return tr;
+        }
+
+        // Add a new log
+        async function addLog() {
+            const messageInput = document.getElementById('logMessage');
+            const message = messageInput.value.trim();
+            const addBtn = document.getElementById('addBtn');
+            const messageEl = document.getElementById('message');
+
+            if (!message) {
+                messageEl.innerHTML = '<div class="message error">Please enter a message</div>';
+                return;
+            }
+
+            addBtn.disabled = true;
+            addBtn.textContent = 'Adding...';
+            messageEl.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_URL}/add-log`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    messageEl.innerHTML = '<div class="message success">Log added successfully! Transaction hash: ' + data.transactionHash + '</div>';
+                    messageInput.value = '';
+                    // Reload logs after a short delay (full refresh)
+                    setTimeout(() => loadLogs(false), 1000);
+                } else {
+                    messageEl.innerHTML = '<div class="message error">Error: ' + (data.message || 'Failed to add log') + '</div>';
+                }
+            } catch (error) {
+                messageEl.innerHTML = '<div class="message error">Error: Could not connect to server. Make sure the server is running.</div>';
+            } finally {
+                addBtn.disabled = false;
+                addBtn.textContent = 'Add Log';
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('logMessage').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addLog();
+            }
+        });
+    </script>
+</body>
+</html>
+
