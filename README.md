@@ -279,3 +279,7 @@ This is a project for educational purposes. Feel free to fork and modify as need
 **Last Updated:** 2025-11-06  
 **Version:** 1.0.0
 
+how to run 
+npm start for everything 
+npm run stream - starts logging 
+npm run stop-logs - stop 

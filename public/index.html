@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="lock.svg" type="image/x-icon">
     <title>Blockchain Log Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -11,53 +13,159 @@
             box-sizing: border-box;
         }
 
+        /* CSS Variables for theming */
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f8f9fa;
+            --text-primary: #333333;
+            --text-secondary: #2c3e50;
+            --text-tertiary: #34495e;
+            --text-muted: #7f8c8d;
+            --border-color: #dddddd;
+            --shadow: rgba(0,0,0,0.1);
+            --hover-bg: #f8f9fa;
+            --input-bg: #ffffff;
+            --input-border: #dddddd;
+        }
+
+        body.dark-mode {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #f0f6fc;
+            --text-tertiary: #e6edf3;
+            --text-muted: #8b949e;
+            --border-color: #30363d;
+            --shadow: rgba(0,0,0,0.5);
+            --hover-bg: #272c33;
+            --input-bg: #0d1117;
+            --input-border: #30363d;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            padding: 20px;
-            color: #333;
+            background-color: var(--bg-primary);
+            padding: 10px;
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
-            background: white;
+            background: var(--bg-secondary);
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 30px;
+            box-shadow: 0 2px 10px var(--shadow);
+            padding: 20px;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         h1 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-            font-size: 28px;
+            color: var(--text-secondary);
+            margin: 0;
+            font-size: 24px;
+            transition: color 0.3s ease;
+        }
+
+        .dark-mode-toggle {
+            padding: 8px;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .dark-mode-toggle:hover {
+            background: var(--hover-bg);
+            border-color: var(--text-muted);
+            transform: scale(1.05);
+        }
+
+        .dark-mode-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .dark-mode-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-primary);
+            transition: fill 0.3s ease, transform 0.3s ease;
+        }
+
+        .dark-mode-toggle:hover svg {
+            fill: var(--text-secondary);
+        }
+
+        body.dark-mode .dark-mode-toggle svg {
+            fill: #ffa500;
+        }
+
+        body.dark-mode .dark-mode-toggle:hover svg {
+            fill: #ffb84d;
         }
 
         .add-log-section {
-            background: #f8f9fa;
+            background: var(--bg-tertiary);
             padding: 20px;
             border-radius: 6px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
         }
 
         .add-log-section h2 {
             font-size: 18px;
             margin-bottom: 15px;
-            color: #34495e;
+            color: var(--text-tertiary);
+            transition: color 0.3s ease;
         }
 
         .input-group {
             display: flex;
             gap: 10px;
             margin-bottom: 10px;
+            flex-wrap: wrap;
         }
 
-        input[type="text"] {
+        input[type="text"], select {
             flex: 1;
+            min-width: 200px;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--input-border);
             border-radius: 4px;
             font-size: 14px;
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        body.dark-mode input[type="text"]:focus, 
+        body.dark-mode select:focus {
+            border-color: #58a6ff;
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
         }
 
         button {
@@ -69,15 +177,69 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
+            white-space: nowrap;
+            transition: all 0.2s ease;
         }
 
         button:hover {
             background: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button:active {
+            transform: translateY(0);
         }
 
         button:disabled {
             background: #bdc3c7;
             cursor: not-allowed;
+            transform: none;
+        }
+
+        body.dark-mode button:disabled {
+            background: #30363d;
+            color: #6e7681;
+        }
+
+        .btn-success {
+            background: #27ae60;
+        }
+
+        .btn-success:hover {
+            background: #229954;
+        }
+
+        body.dark-mode .btn-success {
+            background: #238636;
+        }
+
+        body.dark-mode .btn-success:hover {
+            background: #2ea043;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        body.dark-mode .btn-secondary {
+            background: #30363d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+
+        body.dark-mode .btn-secondary:hover {
+            background: #21262d;
+            border-color: #30363d;
+        }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 12px;
         }
 
         .message {
@@ -85,76 +247,220 @@
             border-radius: 4px;
             margin-top: 10px;
             font-size: 14px;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
-        .message.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+        .filter-section {
+            background: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
         }
 
-        .message.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .filter-section h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: var(--text-tertiary);
+            transition: color 0.3s ease;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-controls input, .filter-controls select {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
         }
 
         .logs-section {
-            margin-top: 30px;
+            margin-top: 20px;
         }
 
         .logs-section h2 {
             font-size: 18px;
             margin-bottom: 15px;
-            color: #34495e;
+            color: var(--text-tertiary);
+            transition: color 0.3s ease;
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .logs-count {
-            color: #7f8c8d;
+            color: var(--text-muted);
             font-size: 14px;
-            margin-bottom: 15px;
+            transition: color 0.3s ease;
+        }
+
+        .export-buttons {
+            display: flex;
+            gap: 10px;
         }
 
         .loading {
             text-align: center;
             padding: 20px;
-            color: #7f8c8d;
+            color: var(--text-muted);
+            transition: color 0.3s ease;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 70vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            transition: border-color 0.3s ease;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
+            min-width: 800px;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         th, td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid var(--border-color);
+            transition: border-color 0.3s ease;
         }
 
         th {
-            background: #f8f9fa;
+            background: var(--bg-tertiary);
             font-weight: 600;
-            color: #2c3e50;
-            position: sticky;
-            top: 0;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
-        tr:hover {
-            background: #f8f9fa;
+        tbody tr {
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background: var(--hover-bg);
+        }
+
+        /* Log severity color coding */
+        tr.log-info {
+            background-color: rgba(76, 175, 80, 0.1);
+        }
+
+        body.dark-mode tr.log-info {
+            background-color: rgba(56, 139, 253, 0.15);
+        }
+
+        tr.log-warning {
+            background-color: rgba(255, 152, 0, 0.12);
+        }
+
+        body.dark-mode tr.log-warning {
+            background-color: rgba(255, 211, 77, 0.2);
+        }
+
+        tr.log-error {
+            background-color: rgba(244, 67, 54, 0.12);
+        }
+
+        body.dark-mode tr.log-error {
+            background-color: rgba(248, 81, 73, 0.25);
+        }
+
+        tr.log-new {
+            animation: highlightNew 2s ease-out;
+        }
+
+        @keyframes highlightNew {
+            0% {
+                background-color: rgba(255, 193, 7, 0.3);
+            }
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        body.dark-mode tr.log-new {
+            animation: highlightNewDark 2s ease-out;
+        }
+
+        @keyframes highlightNewDark {
+            0% {
+                background-color: rgba(255, 211, 77, 0.4);
+                box-shadow: 0 0 10px rgba(255, 211, 77, 0.3);
+            }
+            100% {
+                background-color: transparent;
+                box-shadow: none;
+            }
+        }
+
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .severity-info {
+            background: #4caf50;
+            color: white;
+        }
+
+        body.dark-mode .severity-info {
+            background: #3889fd;
+            color: #f0f6fc;
+        }
+
+        .severity-warning {
+            background: #ff9800;
+            color: white;
+        }
+
+        body.dark-mode .severity-warning {
+            background: #d29922;
+            color: #f0f6fc;
+        }
+
+        .severity-error {
+            background: #f44336;
+            color: white;
+        }
+
+        body.dark-mode .severity-error {
+            background: #f85149;
+            color: #f0f6fc;
         }
 
         .timestamp {
             font-family: 'Courier New', monospace;
             font-size: 12px;
-            color: #7f8c8d;
+            color: var(--text-muted);
             white-space: nowrap;
-        }
-        
-        .timestamp small {
-            font-size: 10px;
-            color: #95a5a6;
+            transition: color 0.3s ease;
         }
 
         .sender {
@@ -162,114 +468,658 @@
             font-size: 12px;
             color: #3498db;
             word-break: break-all;
+            max-width: 200px;
+        }
+
+        body.dark-mode .sender {
+            color: #58a6ff;
         }
 
         .message-cell {
-            max-width: 500px;
+            max-width: 600px;
             word-wrap: break-word;
             font-size: 13px;
+            position: relative;
         }
 
-        .refresh-btn {
+        .message-preview {
+            max-height: 60px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .message-full {
+            display: none;
+        }
+
+        .message-full.show {
+            display: block;
+        }
+
+        .show-more-btn {
+            color: #3498db;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 5px;
+            text-decoration: underline;
+            transition: color 0.3s ease;
+        }
+
+        .show-more-btn:hover {
+            color: #2980b9;
+        }
+
+        body.dark-mode .show-more-btn {
+            color: #58a6ff;
+        }
+
+        body.dark-mode .show-more-btn:hover {
+            color: #79c0ff;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .copy-btn {
+            background: #95a5a6;
+            padding: 4px 8px;
+            font-size: 11px;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: #7f8c8d;
+            transform: scale(1.05);
+        }
+
+        .copy-btn.copied {
             background: #27ae60;
-            margin-left: 10px;
         }
 
-        .refresh-btn:hover {
-            background: #229954;
+        body.dark-mode .copy-btn {
+            background: #30363d;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+        }
+
+        body.dark-mode .copy-btn:hover {
+            background: #21262d;
+            border-color: #58a6ff;
+        }
+
+        body.dark-mode .copy-btn.copied {
+            background: #238636;
+            color: #f0f6fc;
+        }
+
+        /* Analytics Section */
+        .analytics-section {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background: var(--bg-tertiary);
+            padding: 20px;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .analytics-header h2 {
+            font-size: 18px;
+            color: var(--text-tertiary);
+            margin: 0;
+            transition: color 0.3s ease;
+        }
+
+        .view-toggle {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .view-toggle-btn {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .view-toggle-btn.active {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        body.dark-mode .view-toggle-btn.active {
+            background: #58a6ff;
+            border-color: #58a6ff;
+        }
+
+        .view-toggle-btn:hover:not(.active) {
+            background: var(--hover-bg);
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .chart-controls label {
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .chart-controls select {
+            padding: 6px 12px;
+            border: 1px solid var(--input-border);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 30px;
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .heatmap-container {
+            position: relative;
+            min-height: 200px;
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .heatmap-table th,
+        .heatmap-table td {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            font-size: 12px;
+            transition: border-color 0.3s ease;
+        }
+
+        .heatmap-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        .heatmap-cell {
+            min-width: 40px;
+            height: 30px;
+            border-radius: 3px;
+            transition: opacity 0.2s ease;
+        }
+
+        .heatmap-cell:hover {
+            opacity: 0.8;
+            cursor: pointer;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .heatmap-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .heatmap-legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+        }
+
+        .chart-legend {
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .analytics-hidden {
+            display: none;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: var(--hover-bg);
+            border-color: var(--text-muted);
+            transform: translateY(-1px);
+        }
+
+        .pagination button:disabled {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+
+        .pagination-info {
+            color: var(--text-muted);
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        .pagination button {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: var(--hover-bg);
+            border-color: var(--text-muted);
+        }
+
+        .message.success {
+            background: rgba(76, 175, 80, 0.1);
+            color: #2e7d32;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        body.dark-mode .message.success {
+            background: rgba(56, 139, 253, 0.15);
+            color: #58a6ff;
+            border-color: rgba(56, 139, 253, 0.3);
+        }
+
+        .message.error {
+            background: rgba(244, 67, 54, 0.1);
+            color: #c62828;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        body.dark-mode .message.error {
+            background: rgba(248, 81, 73, 0.2);
+            color: #f85149;
+            border-color: rgba(248, 81, 73, 0.4);
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            input[type="text"], select, button {
+                width: 100%;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+            }
+
+            .filter-controls input, .filter-controls select {
+                width: 100%;
+            }
+
+            .logs-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .export-buttons {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .table-wrapper {
+                max-height: 50vh;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+
+            .message-cell {
+                max-width: 200px;
+            }
+
+            .sender {
+                max-width: 100px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔗 Blockchain Log Viewer</h1>
+        <div class="header-container">
+            <h1>Blockchain Log Viewer</h1>
+            <button class="dark-mode-toggle" id="darkModeToggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12,22 C17.5228475,22 22,17.5228475 22,12 C22,6.4771525 17.5228475,2 12,2 C6.4771525,2 2,6.4771525 2,12 C2,17.5228475 6.4771525,22 12,22 Z M12,20.5 L12,3.5 C16.6944204,3.5 20.5,7.30557963 20.5,12 C20.5,16.6944204 16.6944204,20.5 12,20.5 Z" fill="currentColor"/>
+                </svg>
+            </button>
+        </div>
 
         <div class="add-log-section">
             <h2>Add New Log</h2>
             <div class="input-group">
                 <input type="text" id="logMessage" placeholder="Enter log message..." />
                 <button onclick="addLog()" id="addBtn">Add Log</button>
-                <button onclick="loadLogs(false)" class="refresh-btn">Refresh</button>
+                <button onclick="loadLogs(false)" class="refresh-btn btn-success">Refresh</button>
             </div>
             <div id="message"></div>
         </div>
 
-        <div class="logs-section">
-            <h2>Stored Logs</h2>
-            <div class="logs-count" id="logsCount">Loading...</div>
-            <div id="logsContainer">
-                <div class="loading">Loading logs from blockchain...</div>
+        <div class="filter-section">
+            <h3>Filters & Search</h3>
+            <div class="filter-controls">
+                <select id="severityFilter">
+                    <option value="">All Severities</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                </select>
+                <input type="text" id="senderFilter" placeholder="Filter by sender address..." />
+                <input type="text" id="keywordFilter" placeholder="Search in messages..." />
+                <button onclick="applyFilters()" class="btn-secondary">Apply Filters</button>
+                <button onclick="clearFilters()" class="btn-secondary">Clear</button>
             </div>
+        </div>
+
+        <div class="analytics-section" id="analyticsSection">
+            <div class="analytics-header">
+                <h2>Analytics & Visualization</h2>
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" id="viewChartsBtn" onclick="toggleView('charts')">Charts</button>
+                    <button class="view-toggle-btn" id="viewTableBtn" onclick="toggleView('table')">Table</button>
+                </div>
+            </div>
+            <div id="chartsView">
+                <div class="chart-controls">
+                    <label for="chartSeverityFilter">Filter by Severity:</label>
+                    <select id="chartSeverityFilter" onchange="updateCharts()">
+                        <option value="ALL">All Logs</option>
+                        <option value="INFO">INFO Only</option>
+                        <option value="WARNING">WARNING Only</option>
+                        <option value="ERROR">ERROR Only</option>
+                    </select>
+                    <label for="timeRangeSelect">Time Range:</label>
+                    <select id="timeRangeSelect" onchange="updateCharts()">
+                        <option value="24h">Last 24 Hours</option>
+                        <option value="7d">Last 7 Days</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="logFrequencyChart"></canvas>
+                    <div class="chart-legend">Log Frequency Over Time</div>
+                </div>
+                <div class="heatmap-container">
+                    <h3 style="color: var(--text-tertiary); margin-bottom: 15px; font-size: 16px;">Severity Heatmap</h3>
+                    <div id="heatmapContent"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="logs-section" id="logsSection">
+            <div class="logs-header">
+                <div>
+                    <h2>Stored Logs</h2>
+                    <div class="logs-count" id="logsCount">Loading...</div>
+                </div>
+                <div class="export-buttons">
+                    <button onclick="exportLogs('csv')" class="btn-secondary btn-small">Export CSV</button>
+                    <button onclick="exportLogs('json')" class="btn-secondary btn-small">Export JSON</button>
+                </div>
+            </div>
+            <div class="table-wrapper" id="tableWrapper">
+                <div id="logsContainer">
+                    <div class="loading">Loading logs from blockchain...</div>
+                </div>
+            </div>
+            <div class="pagination" id="pagination"></div>
         </div>
     </div>
 
     <script>
         const API_URL = 'http://localhost:3000';
         let refreshInterval = null;
-        let displayInterval = null;
-        let lastLogIndex = -1; // Track the highest log index we've seen
-        let pendingLogs = []; // Queue of logs waiting to be displayed
-        let fetchCount = 0; // Track API calls
-        let fetchStartTime = Date.now(); // Track when we started counting
-        const MAX_FETCHES_PER_MINUTE = 20; // Maximum 20 API calls per minute
-        const FETCH_INTERVAL = 5000; // Fetch every 5 seconds
-        const DISPLAY_INTERVAL = 500; // Display 2 logs per second (500ms each)
-        const MAX_VISIBLE_LOGS = 100; // Keep only latest 100 logs visible
+        let lastLogIndex = -1;
+        let allLogs = []; // Store all loaded logs
+        let filteredLogs = []; // Store filtered logs
+        let currentPage = 1;
+        const LOGS_PER_PAGE = 50;
+        let fetchCount = 0;
+        let fetchStartTime = Date.now();
+        const MAX_FETCHES_PER_MINUTE = 20;
+        const FETCH_INTERVAL = 5000;
+        let newLogIndices = new Set(); // Track newly added log indices for highlighting
+        
+        // Chart instances
+        let logFrequencyChart = null;
+        let currentView = 'charts'; // 'charts' or 'table'
 
         // Load logs on page load
         window.addEventListener('DOMContentLoaded', () => {
+            initializeDarkMode();
             loadLogs();
-            // Start automatic refresh every 5 seconds
             startAutoRefresh();
-            // Start displaying logs smoothly
-            startDisplayQueue();
+            initializeCharts();
         });
 
-        // Start automatic refresh with rate limiting
+        // Initialize dark mode from localStorage
+        function initializeDarkMode() {
+            const isDarkMode = localStorage.getItem('darkMode') === 'true';
+            if (isDarkMode) {
+                document.body.classList.add('dark-mode');
+                updateDarkModeButton(true);
+            }
+        }
+
+        // Toggle dark mode
+        function toggleDarkMode() {
+            const isDarkMode = document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', isDarkMode);
+            updateDarkModeButton(isDarkMode);
+            
+            // Update chart colors when dark mode changes
+            if (logFrequencyChart) {
+                const textColor = isDarkMode ? '#c9d1d9' : '#333';
+                const gridColor = isDarkMode ? '#30363d' : '#e0e0e0';
+                
+                logFrequencyChart.options.plugins.legend.labels.color = textColor;
+                logFrequencyChart.options.plugins.tooltip.backgroundColor = isDarkMode ? '#161b22' : '#ffffff';
+                logFrequencyChart.options.plugins.tooltip.titleColor = textColor;
+                logFrequencyChart.options.plugins.tooltip.bodyColor = textColor;
+                logFrequencyChart.options.plugins.tooltip.borderColor = isDarkMode ? '#30363d' : '#ddd';
+                logFrequencyChart.options.scales.x.ticks.color = textColor;
+                logFrequencyChart.options.scales.x.grid.color = gridColor;
+                logFrequencyChart.options.scales.y.ticks.color = textColor;
+                logFrequencyChart.options.scales.y.grid.color = gridColor;
+                logFrequencyChart.update('none');
+                
+                // Update heatmap
+                if (allLogs.length > 0) {
+                    const timeRange = document.getElementById('timeRangeSelect').value;
+                    const severityFilter = document.getElementById('chartSeverityFilter').value;
+                    const buckets = processLogDataForCharts(allLogs, timeRange, severityFilter);
+                    updateHeatmap(buckets, timeRange);
+                }
+            }
+        }
+
+        // Update dark mode button
+        function updateDarkModeButton(isDarkMode) {
+            const toggle = document.getElementById('darkModeToggle');
+            if (toggle) {
+                toggle.title = isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+                // Rotate icon animation for visual feedback
+                const svg = toggle.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = isDarkMode ? 'rotate(180deg)' : 'rotate(0deg)';
+                }
+            }
+        }
+
+        // Start automatic refresh
         function startAutoRefresh() {
             refreshInterval = setInterval(() => {
-                // Check rate limit (20 fetches per minute)
                 const now = Date.now();
                 const elapsed = now - fetchStartTime;
                 
                 if (elapsed >= 60000) {
-                    // Reset counter every minute
                     fetchCount = 0;
                     fetchStartTime = now;
                 }
                 
                 if (fetchCount < MAX_FETCHES_PER_MINUTE) {
                     fetchCount++;
-                    loadLogs(true); // true = append mode
+                    loadLogs(true);
                 }
             }, FETCH_INTERVAL);
         }
 
-        // Stop automatic refresh
-        function stopAutoRefresh() {
-            if (refreshInterval) {
-                clearInterval(refreshInterval);
-                refreshInterval = null;
+        // Detect log severity from message
+        function detectSeverity(message) {
+            const upperMessage = message.toUpperCase();
+            if (upperMessage.includes('ERROR') || upperMessage.includes('EXCEPTION') || upperMessage.includes('FAILED') || upperMessage.includes('CRITICAL')) {
+                return 'ERROR';
+            } else if (upperMessage.includes('WARNING') || upperMessage.includes('WARN') || upperMessage.includes('ALERT')) {
+                return 'WARNING';
+            }
+            return 'INFO';
+        }
+
+        // Format timestamp to YYYY-MM-DD HH:MM:SS
+        function formatTimestamp(timestamp) {
+            const date = new Date(parseInt(timestamp) * 1000);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+
+        // Truncate message with show more toggle
+        function createMessageCell(message, index) {
+            const maxLength = 150;
+            const isLong = message.length > maxLength;
+            const preview = isLong ? message.substring(0, maxLength) + '...' : message;
+            const fullMessage = escapeHtml(message);
+            
+            if (!isLong) {
+                return `<div class="message-cell">${fullMessage}</div>`;
+            }
+            
+            return `
+                <div class="message-cell">
+                    <div class="message-preview" id="preview-${index}">${escapeHtml(preview)}</div>
+                    <div class="message-full" id="full-${index}">${fullMessage}</div>
+                    <span class="show-more-btn" onclick="toggleMessage(${index})" id="toggle-${index}">Show more</span>
+                </div>
+            `;
+        }
+
+        function toggleMessage(index) {
+            const preview = document.getElementById(`preview-${index}`);
+            const full = document.getElementById(`full-${index}`);
+            const toggle = document.getElementById(`toggle-${index}`);
+            
+            if (full.classList.contains('show')) {
+                full.classList.remove('show');
+                preview.style.display = 'block';
+                toggle.textContent = 'Show more';
+            } else {
+                full.classList.add('show');
+                preview.style.display = 'none';
+                toggle.textContent = 'Show less';
             }
         }
 
-        // Start displaying queued logs smoothly
-        function startDisplayQueue() {
-            displayInterval = setInterval(() => {
-                if (pendingLogs.length > 0) {
-                    // Display 2 logs per second (one every 500ms)
-                    const log = pendingLogs.shift();
-                    appendLogToTable(log);
-                }
-            }, DISPLAY_INTERVAL);
-        }
-
-        // Stop displaying logs
-        function stopDisplayQueue() {
-            if (displayInterval) {
-                clearInterval(displayInterval);
-                displayInterval = null;
-            }
+        // Copy to clipboard
+        function copyToClipboard(text, buttonId) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(buttonId);
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('copied');
+                }, 2000);
+            });
         }
 
         // Load logs from blockchain
@@ -286,16 +1136,38 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    if (data.count > data.displayed) {
-                        countEl.textContent = `Total logs: ${data.count} (showing latest ${data.displayed})`;
+                    // Update allLogs with new data
+                    if (appendOnly) {
+                        // Merge new logs, avoiding duplicates
+                        const newLogs = data.logs.filter(log => !allLogs.find(l => l.index === log.index));
+                        if (newLogs.length > 0) {
+                            // Mark new logs for highlighting
+                            newLogs.forEach(log => newLogIndices.add(log.index));
+                            // Remove highlight after 5 seconds
+                            setTimeout(() => {
+                                newLogs.forEach(log => newLogIndices.delete(log.index));
+                            }, 5000);
+                        }
+                        allLogs = [...newLogs, ...allLogs].slice(0, 500); // Keep latest 500 in memory
                     } else {
-                        countEl.textContent = `Total logs: ${data.count}`;
+                        allLogs = data.logs;
+                        newLogIndices.clear();
                     }
                     
-                    if (appendOnly) {
-                        appendNewLogs(data.logs);
-                    } else {
-                        displayLogs(data.logs);
+                    // Update lastLogIndex
+                    if (data.logs.length > 0) {
+                        const maxIndex = Math.max(...data.logs.map(l => l.index));
+                        if (maxIndex > lastLogIndex) {
+                            lastLogIndex = maxIndex;
+                        }
+                    }
+                    
+                    countEl.textContent = `Total logs: ${data.count} (showing ${allLogs.length} in memory)`;
+                    
+                    applyFilters();
+                    // Update charts if they're visible
+                    if (currentView === 'charts') {
+                        updateCharts();
                     }
                 } else {
                     if (!appendOnly) {
@@ -311,160 +1183,165 @@
             }
         }
 
-        // Display logs in a table
-        function displayLogs(logs) {
-            const container = document.getElementById('logsContainer');
+        // Apply filters
+        function applyFilters() {
+            const severityFilter = document.getElementById('severityFilter').value;
+            const senderFilter = document.getElementById('senderFilter').value.toLowerCase();
+            const keywordFilter = document.getElementById('keywordFilter').value.toLowerCase();
+            
+            filteredLogs = allLogs.filter(log => {
+                const severity = detectSeverity(log.message);
+                const matchesSeverity = !severityFilter || severity === severityFilter;
+                const matchesSender = !senderFilter || log.sender.toLowerCase().includes(senderFilter);
+                const matchesKeyword = !keywordFilter || log.message.toLowerCase().includes(keywordFilter);
+                
+                return matchesSeverity && matchesSender && matchesKeyword;
+            });
+            
+            currentPage = 1;
+            displayLogs();
+        }
 
-            if (logs.length === 0) {
-                container.innerHTML = '<div class="loading">No logs found. Add a log to get started!</div>';
-                lastLogIndex = -1;
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('severityFilter').value = '';
+            document.getElementById('senderFilter').value = '';
+            document.getElementById('keywordFilter').value = '';
+            applyFilters();
+        }
+
+        // Display logs with pagination
+        function displayLogs() {
+            const container = document.getElementById('logsContainer');
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="loading">No logs found. Try adjusting your filters.</div>';
+                document.getElementById('pagination').innerHTML = '';
                 return;
             }
-
-            let html = '<table><thead><tr><th>Index</th><th>Timestamp</th><th>Sender</th><th>Message</th></tr></thead><tbody>';
-
-            logs.forEach(log => {
-                html += formatLogRow(log);
-                // Update last seen index
-                if (log.index > lastLogIndex) {
-                    lastLogIndex = log.index;
-                }
+            
+            const startIndex = (currentPage - 1) * LOGS_PER_PAGE;
+            const endIndex = startIndex + LOGS_PER_PAGE;
+            const pageLogs = filteredLogs.slice(startIndex, endIndex);
+            
+            let html = '<table><thead><tr><th>Severity</th><th>Index</th><th>Timestamp</th><th>Sender</th><th>Message</th><th>Actions</th></tr></thead><tbody>';
+            
+            pageLogs.forEach((log, idx) => {
+                const severity = detectSeverity(log.message);
+                const severityClass = `log-${severity.toLowerCase()}`;
+                // Highlight if it's a new log
+                const isNew = newLogIndices.has(log.index);
+                const newClass = isNew ? 'log-new' : '';
+                
+                html += `
+                    <tr class="${severityClass} ${newClass}" data-index="${log.index}">
+                        <td><span class="severity-badge severity-${severity.toLowerCase()}">${severity}</span></td>
+                        <td>${log.index}</td>
+                        <td class="timestamp">${formatTimestamp(log.timestamp)}</td>
+                        <td class="sender">${escapeHtml(log.sender)}</td>
+                        <td>${createMessageCell(log.message, log.index)}</td>
+                        <td class="action-buttons">
+                            <button class="copy-btn btn-small" id="copy-${log.index}">Copy</button>
+                        </td>
+                    </tr>
+                `;
             });
-
+            
             html += '</tbody></table>';
             container.innerHTML = html;
-        }
-
-        // Append only new logs (logs with index > lastLogIndex)
-        function appendNewLogs(logs) {
-            const container = document.getElementById('logsContainer');
-            const table = container.querySelector('table');
             
-            if (!table) {
-                // No table yet, display all logs
-                displayLogs(logs);
-                return;
-            }
-
-            // Filter new logs (index > lastLogIndex) and avoid duplicates
-            const newLogs = logs.filter(log => log.index > lastLogIndex);
-            
-            if (newLogs.length === 0) {
-                return; // No new logs
-            }
-
-            // Add new logs to pending queue (they'll be displayed smoothly)
-            newLogs.forEach(log => {
-                // Avoid duplicates in queue
-                if (!pendingLogs.find(p => p.index === log.index)) {
-                    pendingLogs.push(log);
-                    // Update last seen index
-                    if (log.index > lastLogIndex) {
-                        lastLogIndex = log.index;
+            // Attach event listeners to copy buttons
+            container.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const logIndex = parseInt(this.closest('tr').getAttribute('data-index'));
+                    const log = filteredLogs.find(l => l.index === logIndex);
+                    if (log) {
+                        const buttonId = this.id;
+                        copyToClipboard(log.message, buttonId);
                     }
-                }
+                });
             });
-
-            // Update count
-            const countEl = document.getElementById('logsCount');
-            const currentText = countEl.textContent;
-            const match = currentText.match(/Total logs: (\d+)/);
-            if (match) {
-                const total = parseInt(match[1]);
-                countEl.textContent = `Total logs: ${total} (showing latest ${Math.min(total, 100)})`;
-            }
+            
+            renderPagination();
         }
 
-        // Append a single log to the table
-        function appendLogToTable(log) {
-            const container = document.getElementById('logsContainer');
-            const table = container.querySelector('table');
+        // Render pagination controls
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredLogs.length / LOGS_PER_PAGE);
+            const pagination = document.getElementById('pagination');
             
-            if (!table) {
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
                 return;
             }
+            
+            let html = `
+                <button onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>Previous</button>
+                <span class="pagination-info">Page ${currentPage} of ${totalPages} (${filteredLogs.length} logs)</span>
+                <button onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next</button>
+            `;
+            
+            pagination.innerHTML = html;
+        }
 
-            const tbody = table.querySelector('tbody');
-            if (!tbody) return;
-
-            // Check if log already exists in table
-            const existingRow = tbody.querySelector(`tr[data-index="${log.index}"]`);
-            if (existingRow) {
-                return; // Already displayed
-            }
-
-            // Create and prepend the row
-            const row = createLogRow(log);
-            row.setAttribute('data-index', log.index);
-            tbody.insertBefore(row, tbody.firstChild);
-
-            // Keep only latest 100 logs visible
-            const allRows = tbody.querySelectorAll('tr');
-            if (allRows.length > MAX_VISIBLE_LOGS) {
-                // Remove oldest logs (at the bottom)
-                for (let i = allRows.length - 1; i >= MAX_VISIBLE_LOGS; i--) {
-                    allRows[i].remove();
-                }
+        // Change page
+        function changePage(page) {
+            const totalPages = Math.ceil(filteredLogs.length / LOGS_PER_PAGE);
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                displayLogs();
+                document.getElementById('tableWrapper').scrollTop = 0;
             }
         }
 
-        // Format a single log row as HTML string
-        function formatLogRow(log) {
-            // Try to extract timestamp from log message (format: 2025-11-06 17:01:58.974096+0530)
-            const logTimestampMatch = log.message.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
-            let displayDate;
-            let displayTime;
+        // Export logs
+        function exportLogs(format) {
+            const logsToExport = filteredLogs.length > 0 ? filteredLogs : allLogs;
             
-            if (logTimestampMatch) {
-                // Use timestamp from log message if available
-                const logTimeStr = logTimestampMatch[1];
-                displayDate = logTimeStr;
-                displayTime = 'From log';
-            } else {
-                // Fall back to blockchain timestamp
-                const date = new Date(parseInt(log.timestamp) * 1000);
-                displayDate = date.toLocaleDateString();
-                displayTime = date.toLocaleTimeString();
+            if (logsToExport.length === 0) {
+                alert('No logs to export');
+                return;
             }
             
-            return `
-                <tr>
-                    <td>${log.index}</td>
-                    <td class="timestamp">${displayDate}<br><small>${displayTime}</small></td>
-                    <td class="sender">${log.sender}</td>
-                    <td class="message-cell">${escapeHtml(log.message)}</td>
-                </tr>
-            `;
+            if (format === 'csv') {
+                const headers = ['Index', 'Severity', 'Timestamp', 'Sender', 'Message'];
+                const rows = logsToExport.map(log => {
+                    const severity = detectSeverity(log.message);
+                    const timestamp = formatTimestamp(log.timestamp);
+                    return [
+                        log.index,
+                        severity,
+                        timestamp,
+                        log.sender,
+                        `"${log.message.replace(/"/g, '""')}"`
+                    ].join(',');
+                });
+                
+                const csv = [headers.join(','), ...rows].join('\n');
+                downloadFile(csv, 'logs.csv', 'text/csv');
+            } else if (format === 'json') {
+                const json = JSON.stringify(logsToExport.map(log => ({
+                    index: log.index,
+                    severity: detectSeverity(log.message),
+                    timestamp: formatTimestamp(log.timestamp),
+                    sender: log.sender,
+                    message: log.message
+                })), null, 2);
+                downloadFile(json, 'logs.json', 'application/json');
+            }
         }
 
-        // Create a log row as DOM element
-        function createLogRow(log) {
-            const tr = document.createElement('tr');
-            tr.setAttribute('data-index', log.index);
-            
-            // Try to extract timestamp from log message
-            const logTimestampMatch = log.message.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
-            let displayDate;
-            let displayTime;
-            
-            if (logTimestampMatch) {
-                const logTimeStr = logTimestampMatch[1];
-                displayDate = logTimeStr;
-                displayTime = 'From log';
-            } else {
-                const date = new Date(parseInt(log.timestamp) * 1000);
-                displayDate = date.toLocaleDateString();
-                displayTime = date.toLocaleTimeString();
-            }
-            
-            tr.innerHTML = `
-                <td>${log.index}</td>
-                <td class="timestamp">${displayDate}<br><small>${displayTime}</small></td>
-                <td class="sender">${log.sender}</td>
-                <td class="message-cell">${escapeHtml(log.message)}</td>
-            `;
-            
-            return tr;
+        // Download file
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         // Add a new log
@@ -497,7 +1374,6 @@
                 if (data.success) {
                     messageEl.innerHTML = '<div class="message success">Log added successfully! Transaction hash: ' + data.transactionHash + '</div>';
                     messageInput.value = '';
-                    // Reload logs after a short delay (full refresh)
                     setTimeout(() => loadLogs(false), 1000);
                 } else {
                     messageEl.innerHTML = '<div class="message error">Error: ' + (data.message || 'Failed to add log') + '</div>';
@@ -523,7 +1399,333 @@
                 addLog();
             }
         });
+
+        // Allow Enter key in filter inputs
+        document.getElementById('senderFilter').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+
+        document.getElementById('keywordFilter').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                applyFilters();
+            }
+        });
+
+        // ========== CHART FUNCTIONS ==========
+
+        // Toggle between charts and table view
+        function toggleView(view) {
+            currentView = view;
+            const chartsView = document.getElementById('chartsView');
+            const logsSection = document.getElementById('logsSection');
+            const viewChartsBtn = document.getElementById('viewChartsBtn');
+            const viewTableBtn = document.getElementById('viewTableBtn');
+            
+            if (view === 'charts') {
+                chartsView.style.display = 'block';
+                logsSection.style.display = 'none';
+                viewChartsBtn.classList.add('active');
+                viewTableBtn.classList.remove('active');
+                updateCharts(); // Update charts when switching to charts view
+            } else {
+                chartsView.style.display = 'none';
+                logsSection.style.display = 'block';
+                viewChartsBtn.classList.remove('active');
+                viewTableBtn.classList.add('active');
+            }
+        }
+
+        // Initialize charts
+        function initializeCharts() {
+            const ctx = document.getElementById('logFrequencyChart');
+            if (!ctx) return;
+            
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const textColor = isDarkMode ? '#c9d1d9' : '#333';
+            const gridColor = isDarkMode ? '#30363d' : '#e0e0e0';
+            
+            logFrequencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: textColor,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: isDarkMode ? '#161b22' : '#ffffff',
+                            titleColor: textColor,
+                            bodyColor: textColor,
+                            borderColor: isDarkMode ? '#30363d' : '#ddd',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: textColor,
+                                maxRotation: 45,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: textColor,
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+            
+            updateCharts();
+        }
+
+        // Process log data for charts
+        function processLogDataForCharts(logs, timeRange, severityFilter) {
+            // Limit to latest 500 logs for performance
+            const logsToProcess = logs.slice(0, 500);
+            
+            // Filter by severity if specified
+            let filteredLogs = logsToProcess;
+            if (severityFilter !== 'ALL') {
+                filteredLogs = logsToProcess.filter(log => {
+                    return detectSeverity(log.message) === severityFilter;
+                });
+            }
+            
+            // Determine time bucket size
+            const now = Date.now();
+            const rangeMs = timeRange === '24h' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+            const bucketSize = timeRange === '24h' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 1 hour or 1 day
+            const numBuckets = Math.ceil(rangeMs / bucketSize);
+            
+            // Initialize buckets
+            const buckets = Array(numBuckets).fill(0).map((_, i) => {
+                const bucketStart = now - (numBuckets - i) * bucketSize;
+                return {
+                    time: bucketStart,
+                    count: 0,
+                    info: 0,
+                    warning: 0,
+                    error: 0
+                };
+            });
+            
+            // Aggregate logs into buckets
+            filteredLogs.forEach(log => {
+                const logTime = parseInt(log.timestamp) * 1000;
+                const bucketIndex = Math.floor((logTime - (now - rangeMs)) / bucketSize);
+                
+                if (bucketIndex >= 0 && bucketIndex < numBuckets) {
+                    buckets[bucketIndex].count++;
+                    const severity = detectSeverity(log.message);
+                    if (severity === 'INFO') buckets[bucketIndex].info++;
+                    else if (severity === 'WARNING') buckets[bucketIndex].warning++;
+                    else if (severity === 'ERROR') buckets[bucketIndex].error++;
+                }
+            });
+            
+            return buckets;
+        }
+
+        // Update charts with current data
+        function updateCharts() {
+            if (!logFrequencyChart || allLogs.length === 0) return;
+            
+            const severityFilter = document.getElementById('chartSeverityFilter').value;
+            const timeRange = document.getElementById('timeRangeSelect').value;
+            
+            const buckets = processLogDataForCharts(allLogs, timeRange, severityFilter);
+            
+            // Format labels
+            const labels = buckets.map(bucket => {
+                const date = new Date(bucket.time);
+                if (timeRange === '24h') {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                } else {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
+            });
+            
+            // Update chart data
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            const datasets = [];
+            
+            if (severityFilter === 'ALL') {
+                datasets.push({
+                    label: 'All Logs',
+                    data: buckets.map(b => b.count),
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                });
+                
+                datasets.push({
+                    label: 'INFO',
+                    data: buckets.map(b => b.info),
+                    borderColor: '#4caf50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                });
+                
+                datasets.push({
+                    label: 'WARNING',
+                    data: buckets.map(b => b.warning),
+                    borderColor: '#ff9800',
+                    backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                });
+                
+                datasets.push({
+                    label: 'ERROR',
+                    data: buckets.map(b => b.error),
+                    borderColor: '#f44336',
+                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                });
+            } else {
+                const colorMap = {
+                    'INFO': { border: '#4caf50', fill: 'rgba(76, 175, 80, 0.1)' },
+                    'WARNING': { border: '#ff9800', fill: 'rgba(255, 152, 0, 0.1)' },
+                    'ERROR': { border: '#f44336', fill: 'rgba(244, 67, 54, 0.1)' }
+                };
+                const colors = colorMap[severityFilter] || colorMap['INFO'];
+                
+                datasets.push({
+                    label: severityFilter,
+                    data: buckets.map(b => b.count),
+                    borderColor: colors.border,
+                    backgroundColor: colors.fill,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                });
+            }
+            
+            logFrequencyChart.data.labels = labels;
+            logFrequencyChart.data.datasets = datasets;
+            logFrequencyChart.update('none'); // 'none' for smooth update
+            
+            // Update heatmap
+            updateHeatmap(buckets, timeRange);
+        }
+
+        // Update heatmap
+        function updateHeatmap(buckets, timeRange) {
+            const heatmapContent = document.getElementById('heatmapContent');
+            if (!heatmapContent) return;
+            
+            // Aggregate by severity
+            const severityData = {
+                INFO: buckets.map(b => b.info),
+                WARNING: buckets.map(b => b.warning),
+                ERROR: buckets.map(b => b.error)
+            };
+            
+            // Find max value for color scaling
+            const maxValue = Math.max(
+                ...Object.values(severityData).flat(),
+                1 // At least 1 to avoid division by zero
+            );
+            
+            // Generate heatmap HTML
+            let html = '<div style="overflow-x: auto;"><table class="heatmap-table"><thead><tr><th>Severity</th>';
+            
+            // Column headers (time buckets)
+            buckets.forEach(bucket => {
+                const date = new Date(bucket.time);
+                const label = timeRange === '24h' 
+                    ? date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                html += `<th>${label}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            // Rows for each severity
+            ['INFO', 'WARNING', 'ERROR'].forEach(severity => {
+                html += `<tr><td style="font-weight: 600; text-align: left;">${severity}</td>`;
+                severityData[severity].forEach(count => {
+                    const intensity = count / maxValue;
+                    const color = getHeatmapColor(severity, intensity);
+                    const tooltip = `${severity}: ${count} log${count !== 1 ? 's' : ''}`;
+                    html += `<td><div class="heatmap-cell" style="background-color: ${color};" title="${tooltip}">${count > 0 ? count : ''}</div></td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            
+            // Add legend
+            html += '<div class="heatmap-legend">';
+            html += '<span class="heatmap-legend-item"><span class="heatmap-legend-color" style="background-color: rgba(76, 175, 80, 0.2);"></span> Low</span>';
+            html += '<span class="heatmap-legend-item"><span class="heatmap-legend-color" style="background-color: rgba(76, 175, 80, 0.6);"></span> Medium</span>';
+            html += '<span class="heatmap-legend-item"><span class="heatmap-legend-color" style="background-color: rgba(76, 175, 80, 1);"></span> High</span>';
+            html += '</div>';
+            
+            heatmapContent.innerHTML = html;
+        }
+
+        // Get heatmap color based on severity and intensity
+        function getHeatmapColor(severity, intensity) {
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            
+            // Base colors for each severity
+            const colorMap = {
+                'INFO': { r: 76, g: 175, b: 80 },
+                'WARNING': { r: 255, g: 152, b: 0 },
+                'ERROR': { r: 244, g: 67, b: 54 }
+            };
+            
+            const baseColor = colorMap[severity] || colorMap['INFO'];
+            
+            // Calculate color with intensity
+            const alpha = Math.max(0.1, Math.min(1, intensity));
+            
+            if (isDarkMode) {
+                // Dark mode: use lighter backgrounds
+                const lightAlpha = Math.max(0.2, Math.min(0.8, intensity * 0.8));
+                return `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${lightAlpha})`;
+            } else {
+                // Light mode: use standard alpha
+                return `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${alpha})`;
+            }
+        }
+
     </script>
 </body>
 </html>
-
